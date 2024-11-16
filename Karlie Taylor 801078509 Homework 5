@@ -1,0 +1,446 @@
+#Problem 1
+
+#Part A
+import torch
+
+#Data
+t_u = torch.tensor([35.7, 55.9, 58.2])  # input (un-normalized)
+t_c = torch.tensor([0.5, 14.0, 15.0])   # target (in Celsius)
+
+#Inputs
+t_un = 0.1 * t_u
+
+#Parameters
+w2 = torch.ones(1, requires_grad=True) 
+w1 = torch.ones(1, requires_grad=True)  
+b = torch.zeros(1, requires_grad=True)  
+
+#Learning rate
+learning_rate = 1e-4
+
+#Number of epochs
+n_epochs = 5000
+
+#Model function
+def model(t_u):
+    return w2 * t_u**2 + w1 * t_u + b
+
+#Loss function
+def loss_fn(y_pred, y_true):
+    return ((y_pred - y_true)**2).mean()
+
+#Training loop
+for epoch in range(1, n_epochs + 1):
+    
+    y_pred = model(t_un)
+    loss = loss_fn(y_pred, t_c)
+    
+    
+    loss.backward()
+    
+    
+    with torch.no_grad():
+        w2 -= learning_rate * w2.grad
+        w1 -= learning_rate * w1.grad
+        b -= learning_rate * b.grad
+
+        
+        w2.grad.zero_()
+        w1.grad.zero_()
+        b.grad.zero_()
+    
+    #Print loss every 500 epochs
+    if epoch % 500 == 0:
+        print(f"Epoch {epoch}, Loss {loss.item()}")
+
+print(f"Final parameters: w2 = {w2.item()}, w1 = {w1.item()}, b = {b.item()}")
+
+#Part B
+
+import torch
+from torch import tensor
+from torch.nn import functional as F
+import matplotlib.pyplot as plt
+
+#Data
+t_u = torch.linspace(0.1, 1.0, 100)
+t_c = 10 * t_u**2 + 5 * t_u + 2 
+t_u_normalized = (t_u - t_u.mean()) / t_u.std()
+
+#Define the model
+def model(t_u, w2, w1, b):
+    return w2 * t_u ** 2 + w1 * t_u + b
+
+#Define the loss function
+def loss_fn(y_pred, y):
+    return F.mse_loss(y_pred, y)
+
+#Settings
+n_epochs = 5000
+epochs_report = 500
+learning_rates = [0.1, 0.01, 0.001, 0.0001]
+
+#Initial parameters
+params_initial = torch.tensor([1.0, 1.0, 1.0], requires_grad=True)
+
+#Training process
+def train_model(lr, params):
+    optimizer = torch.optim.SGD([params], lr=lr)
+    
+    losses = []
+    for epoch in range(1, n_epochs + 1):
+        y_pred = model(t_u_normalized, params[0], params[1], params[2])
+        loss = loss_fn(y_pred, t_c)
+        
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        if epoch % epochs_report == 0:
+            losses.append(loss.item())
+
+    return losses
+
+#Train and collect results for each learning rate
+results = {}
+for lr in learning_rates:
+    params = params_initial.clone().detach().requires_grad_(True)
+    losses = train_model(lr, params)
+    results[lr] = losses
+
+#Report losses
+for lr, losses in results.items():
+    print(f"Learning Rate: {lr}")
+    for i, loss in enumerate(losses):
+        print(f"Epoch {epochs_report * (i + 1)}: Loss = {loss:.4f}")
+    print("\n")
+
+#Optionally visualize the loss trends
+plt.figure(figsize=(10, 6))
+for lr, losses in results.items():
+    plt.plot(range(epochs_report, n_epochs + 1, epochs_report), losses, label=f"LR: {lr}")
+
+plt.xlabel("Epochs")
+plt.ylabel("Loss")
+plt.title("Loss vs Epochs for Different Learning Rates")
+plt.legend()
+plt.grid()
+plt.show()
+
+#Part C
+
+import numpy as np
+import matplotlib.pyplot as plt
+from torch import tensor
+import torch.optim as optim
+import torch.nn as nn
+
+#Data
+np.random.seed(42)
+t_u = np.linspace(0, 10, 100) 
+t_c_true = 0.5 * t_u ** 2 + 0.3 * t_u + 2 
+t_c = t_c_true + np.random.normal(0, 1, t_u.shape) 
+
+t_u = tensor(t_u, dtype=torch.float32)
+t_c = tensor(t_c, dtype=torch.float32)
+
+#Define models
+class LinearModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.w = nn.Parameter(torch.randn(()))
+        self.b = nn.Parameter(torch.randn(()))
+
+    def forward(self, t_u):
+        return self.w * t_u + self.b
+
+class NonlinearModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.w1 = nn.Parameter(torch.randn(()))
+        self.w2 = nn.Parameter(torch.randn(()))
+        self.b = nn.Parameter(torch.randn(()))
+
+    def forward(self, t_u):
+        return self.w2 * t_u ** 2 + self.w1 * t_u + self.b
+
+#Training function
+def train_model(model, optimizer, loss_fn, t_u, t_c, epochs=5000):
+    for epoch in range(epochs):
+        optimizer.zero_grad()
+        output = model(t_u)
+        loss = loss_fn(output, t_c)
+        loss.backward()
+        optimizer.step()
+    return loss.item()
+
+#Instantiate and train models
+linear_model = LinearModel()
+nonlinear_model = NonlinearModel()
+
+loss_fn = nn.MSELoss()
+linear_optimizer = optim.SGD(linear_model.parameters(), lr=1e-3)
+nonlinear_optimizer = optim.SGD(nonlinear_model.parameters(), lr=1e-3)
+
+linear_loss = train_model(linear_model, linear_optimizer, loss_fn, t_u, t_c)
+nonlinear_loss = train_model(nonlinear_model, nonlinear_optimizer, loss_fn, t_u, t_c)
+
+#Visualize the results
+with torch.no_grad():
+    t_c_linear = linear_model(t_u)
+    t_c_nonlinear = nonlinear_model(t_u)
+
+plt.figure(figsize=(10, 6))
+plt.scatter(t_u, t_c, label="Actual Data", color="blue")
+plt.plot(t_u, t_c_true, label="True Model", color="green", linestyle="--")
+plt.plot(t_u, t_c_linear, label="Linear Model", color="red")
+plt.plot(t_u, t_c_nonlinear, label="Nonlinear Model", color="orange")
+plt.xlabel("Uncalibrated Temperature (t_u)")
+plt.ylabel("Calibrated Temperature (t_c)")
+plt.legend()
+plt.title("Comparison of Linear and Nonlinear Models")
+plt.show()
+
+#Print final losses
+print(f"Final Loss (Linear Model): {linear_loss:.4f}")
+print(f"Final Loss (Nonlinear Model): {nonlinear_loss:.4f}")
+
+if nonlinear_loss < linear_loss:
+    print("The nonlinear model performed better than the linear model.")
+else:
+    print("The linear model performed better than the nonlinear model.")
+
+#Problem 2
+
+#Part A
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
+
+#Load dataset
+url = "https://raw.githubusercontent.com/nurulabsarsiddiky/Intro-to-ML-/main/Housing.csv"
+data = pd.read_csv(url)
+
+#Select relevant features and target
+features = ['area', 'bedrooms', 'bathrooms', 'stories', 'parking']
+target = 'price'
+
+X = data[features]
+y = data[target]
+
+#Handle missing values (if any)
+X.fillna(X.mean(), inplace=True)
+
+#Split dataset into training (80%) and validation (20%)
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+
+#Initialize and train the model
+model = LinearRegression()
+model.fit(X_train, y_train)
+
+#Predict on validation set
+y_pred = model.predict(X_val)
+
+#Calculate mean squared error
+mse = mean_squared_error(y_val, y_pred)
+print(f"Mean Squared Error on Validation Set: {mse}")
+
+#Display model parameters
+print("Model coefficients:", model.coef_)
+print("Model intercept:", model.intercept_)
+
+#Part B
+
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+import matplotlib.pyplot as plt
+
+#Load the dataset
+url = "https://raw.githubusercontent.com/nurulabsarsiddiky/Intro-to-ML-/main/Housing.csv"
+data = pd.read_csv(url)
+
+#Inspect and preprocess data
+print(data.info())  # Check for non-numeric columns
+
+#Identify categorical and numerical columns
+categorical_cols = data.select_dtypes(include=['object']).columns
+numeric_cols = data.select_dtypes(include=['float64', 'int64']).columns
+
+#Separate features and target
+X = data.iloc[:, :-1]
+y = data.iloc[:, -1]
+
+#Preprocessing pipeline
+preprocessor = ColumnTransformer(
+    transformers=[
+        ("num", StandardScaler(), numeric_cols),
+        ("cat", OneHotEncoder(), categorical_cols)
+    ]
+)
+
+#Split into training and validation sets
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+
+#Fit and transform the data
+X_train = preprocessor.fit_transform(X_train)
+X_val = preprocessor.transform(X_val)
+
+#Define linear regression function
+def train_linear_regression(X_train, y_train, X_val, y_val, lr, epochs=5000):
+    n_features = X_train.shape[1]
+    weights = np.random.rand(n_features)
+    bias = np.random.rand()
+    
+    train_loss, val_loss = [], []
+    
+    for epoch in range(epochs):
+        
+        y_pred = np.dot(X_train, weights) + bias
+        y_val_pred = np.dot(X_val, weights) + bias
+        
+        
+        train_mse = np.mean((y_train - y_pred) ** 2)
+        val_mse = np.mean((y_val - y_val_pred) ** 2)
+        
+        
+        if epoch % 500 == 0:
+            train_loss.append(train_mse)
+            val_loss.append(val_mse)
+            print(f"Epoch {epoch}: Train Loss={train_mse:.4f}, Val Loss={val_mse:.4f}")
+        
+        
+        gradients = -2 * np.dot(X_train.T, (y_train - y_pred)) / len(y_train)
+        weights -= lr * gradients
+        bias -= lr * np.mean(y_train - y_pred)
+    
+    return weights, bias, train_loss, val_loss
+
+#Train models with different learning rates
+learning_rates = [0.1, 0.01, 0.001, 0.0001]
+results = {}
+
+for lr in learning_rates:
+    print(f"Training with learning rate: {lr}")
+    weights, bias, train_loss, val_loss = train_linear_regression(X_train, y_train.to_numpy(), X_val, y_val.to_numpy(), lr)
+    results[lr] = (weights, bias, train_loss, val_loss)
+
+#Plot losses for comparison
+for lr, (weights, bias, train_loss, val_loss) in results.items():
+    plt.plot(range(0, 5000, 500), val_loss, label=f"LR={lr}")
+plt.xlabel("Epochs")
+plt.ylabel("Validation Loss")
+plt.legend()
+plt.show()
+
+#Best model selection based on final validation loss
+best_lr = min(results, key=lambda lr: results[lr][3][-1])
+print(f"Best learning rate: {best_lr}")
+
+#Problem 3
+
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder
+from sklearn.compose import ColumnTransformer
+import matplotlib.pyplot as plt
+
+#Load the dataset
+url = "https://raw.githubusercontent.com/nurulabsarsiddiky/Intro-to-ML-/main/Housing.csv"
+data = pd.read_csv(url)
+
+#Inspect the data structure
+print(data.info())
+
+#Define features (X) and target (y)
+X = data.iloc[:, :-1]  # All input features
+y = data.iloc[:, -1]   # Target column
+
+#Encode the target if it's not numeric
+if y.dtype == 'object':
+    label_encoder = LabelEncoder()
+    y = label_encoder.fit_transform(y)
+
+#Identify categorical and numeric columns
+categorical_cols = X.select_dtypes(include=['object']).columns
+numeric_cols = X.select_dtypes(include=['float64', 'int64']).columns
+
+#Preprocessing pipeline
+preprocessor = ColumnTransformer(
+    transformers=[
+        ("num", StandardScaler(), numeric_cols),
+        ("cat", OneHotEncoder(), categorical_cols)
+    ]
+)
+
+#Split the data into training (80%) and validation (20%) sets
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+
+#Apply transformations to the data
+X_train = preprocessor.fit_transform(X_train)
+X_val = preprocessor.transform(X_val)
+
+#Define linear regression function
+def train_linear_regression(X_train, y_train, X_val, y_val, lr, epochs=5000):
+    n_features = X_train.shape[1]
+    weights = np.random.rand(n_features)
+    bias = np.random.rand()
+    
+    train_loss, val_loss = [], []
+    
+    for epoch in range(epochs):
+        
+        y_pred = np.dot(X_train, weights) + bias
+        y_val_pred = np.dot(X_val, weights) + bias
+        
+        
+        train_mse = np.mean((y_train - y_pred) ** 2)
+        val_mse = np.mean((y_val - y_val_pred) ** 2)
+        
+        
+        if epoch % 500 == 0:
+            train_loss.append(train_mse)
+            val_loss.append(val_mse)
+            print(f"Epoch {epoch}: Train Loss={train_mse:.4f}, Val Loss={val_mse:.4f}")
+        
+        
+        gradients = -2 * np.dot(X_train.T, (y_train - y_pred)) / len(y_train)
+        weights -= lr * gradients
+        bias -= lr * np.mean(y_train - y_pred)
+    
+    return weights, bias, train_loss, val_loss
+
+#Train the model with different learning rates
+learning_rates = [0.1, 0.01, 0.001, 0.0001]
+results = {}
+
+for lr in learning_rates:
+    print(f"Training with learning rate: {lr}")
+    weights, bias, train_loss, val_loss = train_linear_regression(X_train, y_train, X_val, y_val, lr)
+    results[lr] = (weights, bias, train_loss, val_loss)
+
+#Plot validation losses for comparison
+for lr, (weights, bias, train_loss, val_loss) in results.items():
+    plt.plot(range(0, 5000, 500), val_loss, label=f"LR={lr}")
+plt.xlabel("Epochs")
+plt.ylabel("Validation Loss")
+plt.legend()
+plt.show()
+
+#Best model selection based on validation loss
+best_lr = min(results, key=lambda lr: results[lr][3][-1])
+print(f"Best learning rate: {best_lr}")
+
+#Display best parameters
+best_weights, best_bias, _, _ = results[best_lr]
+print(f"Best Weights: {best_weights}")
+print(f"Best Bias: {best_bias}")
+
+
+
